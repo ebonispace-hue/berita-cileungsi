@@ -18,7 +18,7 @@ jobs:
           node-version: '24'
 
       - name: Install Dependencies
-        # Sudah dibersihkan: Hanya menginstal rss-parser karena kita pakai HTTP fetch bawaan untuk Gemini
+        # Menggunakan perintah bersih tanpa paket @google/genai murni fetch REST
         run: npm install rss-parser
 
       - name: Jalankan Bot AI
