@@ -3,7 +3,7 @@ name: Bot Berita Otomatis Cileungsi
 on:
   schedule:
     - cron: '0 */2 * * *' # Berjalan otomatis setiap 2 jam sekali
-  workflow_dispatch: # Tombol manual jika Anda ingin mengetes postingan kapan saja
+  workflow_dispatch: # Tombol manual untuk tes kapan saja
 
 jobs:
   build-and-post:
@@ -18,11 +18,11 @@ jobs:
           node-version: '20'
 
       - name: Install Dependencies
-        run: npm install @google/genai
+        run: npm install @google/genai rss-parser
 
       - name: Jalankan Bot AI
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
         run: node scripts/bot-berita.js
 
       - name: Commit dan Push Berita Baru ke GitHub
