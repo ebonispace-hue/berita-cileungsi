@@ -1,0 +1,34 @@
+name: Bot Berita Otomatis Cileungsi
+
+on:
+  schedule:
+    - cron: '0 */2 * * *' # Berjalan otomatis setiap 2 jam sekali
+  workflow_dispatch: # Tombol manual jika Anda ingin mengetes postingan kapan saja
+
+jobs:
+  build-and-post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm install @google/genai
+
+      - name: Jalankan Bot AI
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: node scripts/bot-berita.js
+
+      - name: Commit dan Push Berita Baru ke GitHub
+        run: |
+          git config --global user.name "Cileungsi Viral Bot"
+          git config --global user.email "bot@cileungsiviral.com"
+          git add content/berita/*.md
+          git diff-index --quiet HEAD || git commit -m "Auto-post: Berita Cileungsi Terbaru [skip ci]"
+          git push
