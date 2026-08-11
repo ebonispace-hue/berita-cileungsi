@@ -1,0 +1,65 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+const semuaBerita = await Astro.glob('../../content/berita/*.md');
+// Urutkan berita berdasarkan tanggal terbaru
+const beritaTerbaru = semuaBerita.sort((a, b) => new Date(b.frontmatter.date).valueOf() - new Date(a.frontmatter.date).valueOf());
+
+const beritaUtama = beritaTerbaru[0];
+const beritaSubUtama = beritaTerbaru.slice(1, 3);
+const beritaSampingan = beritaTerbaru.slice(3, 8);
+---
+
+<BaseLayout title="Portal Berita Cileungsi Terupdate & Viral">
+  <main class="max-w-7xl mx-auto px-4 py-6">
+    
+    <!-- Bagian Headline / Breaking News Banner -->
+    <div class="bg-red-600 text-white px-4 py-2 rounded mb-6 flex items-center gap-3 animate-pulse">
+      <span class="font-bold uppercase tracking-wider text-sm">Trending Cileungsi:</span>
+      <marquee class="text-sm font-semibold">Info Flyover macet parah sore ini — Pembukaan cafe baru estetis di Metland Transyogi — Jadwal SIM Keliling Polsek Cileungsi minggu ini</marquee>
+    </div>
+
+    <!-- Tata Letak Kompleks: 3 Kolom Grid Ala Media Besar -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      
+      <!-- KOLOM 1: Berita Utama Besar (6 Kolom) -->
+      <section class="lg:col-span-6">
+        {beritaUtama && (
+          <div class="group cursor-pointer">
+            <img src={beritaUtama.frontmatter.image} alt={beritaUtama.frontmatter.title} class="w-full h-96 object-cover rounded-lg shadow-md group-hover:opacity-90 transition" />
+            <span class="text-red-500 font-bold text-xs uppercase mt-3 inline-block">Kabar Utama</span>
+            <h2 class="text-2xl font-black mt-1 group-hover:text-red-600 transition">{beritaUtama.frontmatter.title}</h2>
+            <p class="text-gray-600 mt-2 text-sm line-clamp-2">{beritaUtama.frontmatter.excerpt}</p>
+          </div>
+        )}
+      </section>
+
+      <!-- KOLOM 2: Dua Berita Menengah (3 Kolom) -->
+      <section class="lg:col-span-3 flex flex-col gap-6 border-r border-l border-gray-100 px-3">
+        {beritaSubUtama.map((post) => (
+          <div class="group cursor-pointer">
+            <img src={post.frontmatter.image} alt={post.frontmatter.title} class="w-full h-40 object-cover rounded-md" />
+            <h3 class="font-bold text-base mt-2 group-hover:text-red-600 transition line-clamp-3">{post.frontmatter.title}</h3>
+          </div>
+        ))}
+      </section>
+
+      <!-- KOLOM 3: List Berita Cepat / Sidebar Rekomendasi (3 Kolom) -->
+      <aside class="lg:col-span-3">
+        <h3 class="font-extrabold text-lg uppercase border-b-2 border-black pb-1 mb-4">📍 Tempat Viral & Kuliner</h3>
+        <div class="flex flex-col gap-4">
+          {beritaSampingan.map((post) => (
+            <div class="flex gap-3 items-start group cursor-pointer">
+              <div class="bg-gray-100 p-2 rounded text-center min-w-[45px]">
+                <span class="block text-xs font-bold text-gray-500">🔥</span>
+              </div>
+              <div>
+                <h4 class="font-semibold text-sm leading-snug group-hover:text-red-600 transition line-clamp-2">{post.frontmatter.title}</h4>
+              </div>
+            </div>
+          ))}
+        </div>
+      </aside>
+
+    </div>
+  </main>
+</BaseLayout>
