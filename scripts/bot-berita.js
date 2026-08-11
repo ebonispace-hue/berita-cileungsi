@@ -6,6 +6,7 @@ async function jalankanBot() {
         const Parser = require('rss-parser');
         const parser = new Parser();
 
+        // Menggunakan endpoint resmi generateContent sesuai dokumentasi REST API Google Gemini
         const GEMINI_API_URL = "https://googleapis.com";
         const URL_TRENDS_INDONESIA = 'https://google.com';
         const URL_GOOGLE_NEWS_ID = 'https://google.com';
@@ -87,14 +88,14 @@ async function jalankanBot() {
             throw new Error(`Google API Error (${jsonRes.error.code}): ${jsonRes.error.message}`);
         }
 
-        // PERBAIKAN UTAMA: Cara pembacaan array JSON Google REST API yang super presisi dan aman
+        // PERBAIKAN UTAMA: Ekstraksi array JSON Google REST API yang sangat presisi dan aman
         let hasilTulisanAI = "";
         if (jsonRes.candidates && jsonRes.candidates[0] && jsonRes.candidates[0].content && jsonRes.candidates[0].content.parts && jsonRes.candidates[0].content.parts[0]) {
             hasilTulisanAI = jsonRes.candidates[0].content.parts[0].text;
         }
 
         if (!hasilTulisanAI) {
-            throw new Error(`Gagal mengekstrak teks teks dari respons Google: ${JSON.stringify(jsonRes)}`);
+            throw new Error(`Gagal mengekstrak teks dari respons Google: ${JSON.stringify(jsonRes)}`);
         }
 
         const fileContent = `---
