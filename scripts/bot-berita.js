@@ -6,14 +6,12 @@ async function jalankanBot() {
         const Parser = require('rss-parser');
         const parser = new Parser();
 
-        // Menggunakan endpoint resmi generateContent sesuai dokumentasi REST API Google Gemini
         const GEMINI_API_URL = "https://googleapis.com";
         const URL_TRENDS_INDONESIA = 'https://google.com';
         const URL_GOOGLE_NEWS_ID = 'https://google.com';
 
         console.log("📥 Memulai pemindaian tren berita...");
         
-        // 1. Mengambil Data Tren Google
         let trenHariIni = [];
         try {
             const feedTrends = await parser.parseURL(URL_TRENDS_INDONESIA);
@@ -23,7 +21,6 @@ async function jalankanBot() {
             console.warn("⚠️ Gagal memuat tren, mencari berita berdasarkan kata kunci lokal saja.");
         }
 
-        // 2. Mengambil Data Berita Regional / Tren Nasional
         const feedNews = await parser.parseURL(URL_GOOGLE_NEWS_ID);
         let berita = null;
 
@@ -41,7 +38,7 @@ async function jalankanBot() {
                     kontenAsli: `${item.title}. ${ringkasan}`,
                     isTrending: isTrendingNasional
                 };
-                break; // Ambil satu berita terbaik untuk siklus jam ini
+                break; 
             }
         }
 
@@ -50,7 +47,7 @@ async function jalankanBot() {
             return;
         }
 
-        console.log(`📌 Berita Terpilih: "${berita.judulAsli}" [Kategori: ${berita.isTrending ? 'Nasional' : 'Lokal'}]`);
+        console.log(`📌 Berita Terpilih: "${berita.judulAsli}"`);
 
         const tanggalSekarang = new Date().toISOString();
         const slug = berita.judulAsli.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').trim();
@@ -76,7 +73,6 @@ async function jalankanBot() {
 
         console.log(`🤖 Menghubungi Server Google Gemini AI...`);
 
-        // Panggilan REST API murni menggunakan fetch bawaan Node.js v24
         const responseAI = await fetch(`${GEMINI_API_URL}?key=${process.env.GEMINI_API_KEY}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -87,17 +83,19 @@ async function jalankanBot() {
 
         const jsonRes = await responseAI.json();
         
-        // JIKA GOOGLE MENOLAK, CETAK ALASAN ERROR SECARA DETAIL DI LOG GITHUB
         if (jsonRes.error) {
             throw new Error(`Google API Error (${jsonRes.error.code}): ${jsonRes.error.message}`);
         }
 
-        // Membaca array objek bertingkat dari respons Google secara aman
-        if (!jsonRes.candidates || jsonRes.candidates.length === 0 || !jsonRes.candidates[0].content?.parts?.[0]?.text) {
-            throw new Error(`Struktur JSON tidak dikenal atau diblokir oleh sensor konten Google: ${JSON.stringify(jsonRes)}`);
+        // PERBAIKAN UTAMA: Cara pembacaan array JSON Google REST API yang super presisi dan aman
+        let hasilTulisanAI = "";
+        if (jsonRes.candidates && jsonRes.candidates[0] && jsonRes.candidates[0].content && jsonRes.candidates[0].content.parts && jsonRes.candidates[0].content.parts[0]) {
+            hasilTulisanAI = jsonRes.candidates[0].content.parts[0].text;
         }
 
-        const hasilTulisanAI = jsonRes.candidates[0].content.parts[0].text;
+        if (!hasilTulisanAI) {
+            throw new Error(`Gagal mengekstrak teks teks dari respons Google: ${JSON.stringify(jsonRes)}`);
+        }
 
         const fileContent = `---
 title: "${berita.judulAsli.replace(/"/g, '\\"')}"
@@ -117,7 +115,7 @@ ${hasilTulisanAI}
     } catch (error) {
         console.error("❌ KESALAHAN UTAMA SISTEM BOT:");
         console.error(error.message);
-        process.exit(1); // Memberikan tanda error ke GitHub jika crash murni terjadi
+        process.exit(1); 
     }
 }
 
