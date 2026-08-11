@@ -3,7 +3,7 @@ name: Bot Berita Otomatis Cileungsi
 on:
   schedule:
     - cron: '0 */2 * * *' # Berjalan otomatis setiap 2 jam sekali
-  workflow_dispatch: # Tombol manual untuk tes kapan saja
+  workflow_dispatch: # Tombol manual untuk langsung mengetes kapan saja
 
 jobs:
   build-and-post:
@@ -18,12 +18,12 @@ jobs:
           node-version: '24'
 
       - name: Install Dependencies
-        # Menambahkan google-auth-library agar sistem bisa membaca Akun Layanan JSON Anda
-        run: npm install @google/genai rss-parser google-auth-library
+        # Sudah dibersihkan: Hanya menginstal rss-parser karena kita pakai HTTP fetch bawaan untuk Gemini
+        run: npm install rss-parser
 
       - name: Jalankan Bot AI
         env:
-          GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: node scripts/bot-berita.js
 
       - name: Commit dan Push Berita Baru ke GitHub
