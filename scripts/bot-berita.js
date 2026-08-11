@@ -4,25 +4,36 @@ import Parser from 'rss-parser';
 import { GoogleGenAI } from '@google/genai';
 
 const parser = new Parser();
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// URL RSS Feed Resmi untuk Tren & Berita Terbesar di Indonesia
+// 1. Inisialisasi API Gemini Menggunakan File Kunci JSON
+let ai;
+try {
+    // Membaca teks JSON dari environment variable GitHub Secrets
+    const credentials = JSON.parse(process.env.GCP_SERVICE_ACCOUNT_KEY);
+    
+    // SDK Gemini secara otomatis mendeteksi kredensial jika diatur ke environment variable Google
+    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON = process.env.GCP_SERVICE_ACCOUNT_KEY;
+    
+    ai = new GoogleGenAI(); // Inisialisasi otomatis dengan Akun Layanan
+} catch (e) {
+    console.error("❌ Gagal memuat GCP_SERVICE_ACCOUNT_KEY dari GitHub Secrets:", e.message);
+    process.exit(1);
+}
+
 const URL_TRENDS_INDONESIA = 'https://google.com';
 const URL_GOOGLE_NEWS_ID = 'https://google.com';
 
 function bersihkanSlug(text) {
     return text.toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, '') // Hapus karakter spesial
-        .replace(/\s+/g, '-')         // Ubah spasi jadi minus
-        .replace(/-+/g, '-')          // Hapus minus ganda
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
         .trim();
 }
 
-// 1. Fungsi Mengambil Topik yang Sedang Naik Daun di Google Trends
 async function ambilKataKunciTrending() {
     try {
         const feed = await parser.parseURL(URL_TRENDS_INDONESIA);
-        // Mengambil 5 tren teratas hari ini
         const daftarTren = feed.items.slice(0, 5).map(item => item.title.toLowerCase());
         console.log("📈 Tren Google Saat Ini:", daftarTren);
         return daftarTren;
@@ -32,7 +43,6 @@ async function ambilKataKunciTrending() {
     }
 }
 
-// 2. Fungsi Mengambil Berita Terbesar dan Menyaring Berdasarkan Tren / Lokal Cileungsi
 async function cariBeritaPotensial() {
     try {
         const feed = await parser.parseURL(URL_GOOGLE_NEWS_ID);
@@ -42,16 +52,11 @@ async function cariBeritaPotensial() {
             const judul = item.title.toLowerCase();
             const ringkasan = item.contentSnippet || "";
             
-            // Cek Kriteria A: Apakah ini berita lokal daerah Cileungsi & sekitarnya?
             const isLokal = judul.includes('cileungsi') || judul.includes('jonggol') || judul.includes('gunung putri') || judul.includes('transyogi');
-            
-            // Cek Kriteria B: Apakah berita nasional ini sedang trending / viral?
             const isTrendingNasional = trenHariIni.some(tren => judul.includes(tren));
 
             if (isLokal || isTrendingNasional) {
-                // Ekstrak nama media asal (contoh: "Detikcom", "Kompas.com")
                 const sumberMedia = item.source || "Media Nasional";
-                
                 return {
                     judulAsli: item.title,
                     sumber: sumberMedia,
@@ -63,10 +68,9 @@ async function cariBeritaPotensial() {
     } catch (error) {
         console.error("❌ Gagal mengambil berita dari Google News:", error);
     }
-    return null; // Jika tidak ada berita baru yang cocok
+    return null;
 }
 
-// 3. Fungsi Utama Menjalankan Bot & AI
 async function jalankanBot() {
     try {
         const berita = await cariBeritaPotensial();
@@ -80,13 +84,11 @@ async function jalankanBot() {
         const slug = bersihkanSlug(berita.judulAsli);
         const pathFile = path.join(process.cwd(), 'content', 'berita', `${slug}.md`);
 
-        // Antisipasi agar tidak menulis artikel yang sama berulang kali
         if (fs.existsSync(pathFile)) {
             console.log(`⚠️ Berita sudah pernah diposting: ${slug}.md`);
             return;
         }
 
-        // Modifikasi instruksi AI berdasarkan jenis berita yang didapat
         let promptAI = "";
         if (berita.isTrending) {
             promptAI = `Ubah berita nasional yang sedang TRENDING VIRAL ini menjadi artikel berita bergaya kasual, informatif, berikan analisis singkat mengapa berita ini ramai, optimasi SEO tinggi, dan jangan gunakan markdown tebal di judul. Berita: ${berita.kontenAsli}`;
@@ -94,7 +96,7 @@ async function jalankanBot() {
             promptAI = `Ubah berita mentah daerah Cileungsi ini menjadi artikel berita lokal yang sangat menarik bagi warga sekitar, sebutkan nama lokasi spesifik di Cileungsi dengan jelas, optimasi SEO lokal, dan jangan gunakan markdown tebal di judul. Berita: ${berita.kontenAsli}`;
         }
 
-        // Tulis ulang dengan Gemini API
+        // Memanggil model AI Gemini terbaru
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: promptAI,
@@ -102,7 +104,6 @@ async function jalankanBot() {
 
         const hasilTulisanAI = response.text;
 
-        // Susun struktur berkas markdown untuk Astro SSG
         const fileContent = `---
 title: "${berita.judulAsli.replace(/"/g, '\\"')}"
 date: "${tanggalSekarang}"
