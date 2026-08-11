@@ -2,21 +2,28 @@ import fs from 'fs';
 import path from 'path';
 import Parser from 'rss-parser';
 import { GoogleGenAI } from '@google/genai';
+import { GoogleAuth } from 'google-auth-library';
 
 const parser = new Parser();
 
-// 1. Inisialisasi API Gemini Menggunakan File Kunci JSON
+// 1. Konfigurasi Autentikasi Menggunakan File Kunci JSON Anda
 let ai;
 try {
-    // Membaca teks JSON dari environment variable GitHub Secrets
-    const credentials = JSON.parse(process.env.GCP_SERVICE_ACCOUNT_KEY);
-    
-    // SDK Gemini secara otomatis mendeteksi kredensial jika diatur ke environment variable Google
-    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON = process.env.GCP_SERVICE_ACCOUNT_KEY;
-    
-    ai = new GoogleGenAI(); // Inisialisasi otomatis dengan Akun Layanan
+    const jsonKeyText = process.env.GCP_SERVICE_ACCOUNT_KEY;
+    if (!jsonKeyText) {
+        throw new Error("GCP_SERVICE_ACCOUNT_KEY tidak ditemukan di GitHub Secrets!");
+    }
+
+    const credentials = JSON.parse(jsonKeyText);
+
+    // Memuat kredensial secara aman ke sistem otentikasi Google
+    const auth = GoogleAuth.fromJSON(credentials);
+    auth.scopes = ['https://googleapis.com'];
+
+    // Inisialisasi Gemini AI dengan otentikasi Google Cloud resmi
+    ai = new GoogleGenAI({ auth });
 } catch (e) {
-    console.error("❌ Gagal memuat GCP_SERVICE_ACCOUNT_KEY dari GitHub Secrets:", e.message);
+    console.error("❌ Gagal memuat otentikasi Akun Layanan Google Cloud:", e.message);
     process.exit(1);
 }
 
@@ -96,7 +103,6 @@ async function jalankanBot() {
             promptAI = `Ubah berita mentah daerah Cileungsi ini menjadi artikel berita lokal yang sangat menarik bagi warga sekitar, sebutkan nama lokasi spesifik di Cileungsi dengan jelas, optimasi SEO lokal, dan jangan gunakan markdown tebal di judul. Berita: ${berita.kontenAsli}`;
         }
 
-        // Memanggil model AI Gemini terbaru
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: promptAI,
