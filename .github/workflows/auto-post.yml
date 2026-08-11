@@ -15,10 +15,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24' # Menggunakan versi terbaru yang direkomendasikan GitHub
+          node-version: '24'
 
       - name: Install Dependencies
-        run: npm install @google/genai rss-parser
+        # Menambahkan google-auth-library agar sistem bisa membaca Akun Layanan JSON Anda
+        run: npm install @google/genai rss-parser google-auth-library
 
       - name: Jalankan Bot AI
         env:
