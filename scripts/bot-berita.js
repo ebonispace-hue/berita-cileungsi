@@ -1,42 +1,33 @@
-import fs from 'fs';
-import path from 'path';
-import Parser from 'rss-parser';
-import { GoogleGenAI } from '@google/genai';
+const fs = require('fs');
+const path = require('path');
 
-const parser = new Parser();
-
-// Inisialisasi Gemini menggunakan Teks API Key baru Anda yang terikat Akun Layanan
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-const URL_TRENDS_INDONESIA = 'https://google.com';
-const URL_GOOGLE_NEWS_ID = 'https://google.com';
-
-function bersihkanSlug(text) {
-    return text.toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .replace(/-+/g, '-')
-        .trim();
-}
-
-async function ambilKataKunciTrending() {
+async function jalankanBot() {
     try {
-        const feed = await parser.parseURL(URL_TRENDS_INDONESIA);
-        const daftarTren = feed.items.slice(0, 5).map(item => item.title.toLowerCase());
-        console.log("📈 Tren Google Saat Ini:", daftarTren);
-        return daftarTren;
-    } catch (error) {
-        console.error("❌ Gagal memuat Google Trends:", error);
-        return [];
-    }
-}
+        const Parser = require('rss-parser');
+        const parser = new Parser();
 
-async function cariBeritaPotensial() {
-    try {
-        const feed = await parser.parseURL(URL_GOOGLE_NEWS_ID);
-        const trenHariIni = await ambilKataKunciTrending();
+        // Menggunakan endpoint resmi generateContent sesuai dokumentasi REST API Google Gemini
+        const GEMINI_API_URL = "https://googleapis.com";
+        const URL_TRENDS_INDONESIA = 'https://google.com';
+        const URL_GOOGLE_NEWS_ID = 'https://google.com';
+
+        console.log("📥 Memulai pemindaian tren berita...");
         
-        for (const item of feed.items) {
+        // 1. Mengambil Data Tren Google
+        let trenHariIni = [];
+        try {
+            const feedTrends = await parser.parseURL(URL_TRENDS_INDONESIA);
+            trenHariIni = feedTrends.items.slice(0, 5).map(item => item.title.toLowerCase());
+            console.log("📈 Tren Google Saat Ini:", trenHariIni);
+        } catch (errTrends) {
+            console.warn("⚠️ Gagal memuat tren, mencari berita berdasarkan kata kunci lokal saja.");
+        }
+
+        // 2. Mengambil Data Berita Regional / Tren Nasional
+        const feedNews = await parser.parseURL(URL_GOOGLE_NEWS_ID);
+        let berita = null;
+
+        for (const item of feedNews.items) {
             const judul = item.title.toLowerCase();
             const ringkasan = item.contentSnippet || "";
             
@@ -44,42 +35,35 @@ async function cariBeritaPotensial() {
             const isTrendingNasional = trenHariIni.some(tren => judul.includes(tren));
 
             if (isLokal || isTrendingNasional) {
-                const sumberMedia = item.source || "Media Nasional";
-                return {
+                berita = {
                     judulAsli: item.title,
-                    sumber: sumberMedia,
+                    sumber: item.source || "Media Nasional",
                     kontenAsli: `${item.title}. ${ringkasan}`,
                     isTrending: isTrendingNasional
                 };
+                break; // Ambil satu berita terbaik untuk siklus jam ini
             }
         }
-    } catch (error) {
-        console.error("❌ Gagal mengambil berita dari Google News:", error);
-    }
-    return null;
-}
 
-async function jalankanBot() {
-    try {
-        const berita = await cariBeritaPotensial();
-        
         if (!berita) {
-            console.log("🗓️ Tidak ada berita krusial atau lokal baru dalam siklus jam ini.");
+            console.log("🗓️ Tidak ada berita baru seputar Cileungsi atau tren nasional yang cocok dalam siklus ini.");
             return;
         }
 
+        console.log(`📌 Berita Terpilih: "${berita.judulAsli}" [Kategori: ${berita.isTrending ? 'Nasional' : 'Lokal'}]`);
+
         const tanggalSekarang = new Date().toISOString();
-        const slug = bersihkanSlug(berita.judulAsli);
+        const slug = berita.judulAsli.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').trim();
+        
         const targetFolder = path.join(process.cwd(), 'content', 'berita');
         const pathFile = path.join(targetFolder, `${slug}.md`);
 
-        // Membuat folder otomatis jika belum ada di dalam repositori
         if (!fs.existsSync(targetFolder)) {
             fs.mkdirSync(targetFolder, { recursive: true });
         }
 
         if (fs.existsSync(pathFile)) {
-            console.log(`⚠️ Berita sudah pernah diposting: ${slug}.md`);
+            console.log(`⚠️ Artikel ini sudah pernah diterbitkan sebelumnya: ${slug}.md`);
             return;
         }
 
@@ -90,12 +74,30 @@ async function jalankanBot() {
             promptAI = `Ubah berita mentah daerah Cileungsi ini menjadi artikel berita lokal yang sangat menarik bagi warga sekitar, sebutkan nama lokasi spesifik di Cileungsi dengan jelas, optimasi SEO lokal, dan jangan gunakan markdown tebal di judul. Berita: ${berita.kontenAsli}`;
         }
 
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: promptAI,
+        console.log(`🤖 Menghubungi Server Google Gemini AI...`);
+
+        // Panggilan REST API murni menggunakan fetch bawaan Node.js v24
+        const responseAI = await fetch(`${GEMINI_API_URL}?key=${process.env.GEMINI_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: promptAI }] }]
+            })
         });
 
-        const hasilTulisanAI = response.text;
+        const jsonRes = await responseAI.json();
+        
+        // JIKA GOOGLE MENOLAK, CETAK ALASAN ERROR SECARA DETAIL DI LOG GITHUB
+        if (jsonRes.error) {
+            throw new Error(`Google API Error (${jsonRes.error.code}): ${jsonRes.error.message}`);
+        }
+
+        // Membaca array objek bertingkat dari respons Google secara aman
+        if (!jsonRes.candidates || jsonRes.candidates.length === 0 || !jsonRes.candidates[0].content?.parts?.[0]?.text) {
+            throw new Error(`Struktur JSON tidak dikenal atau diblokir oleh sensor konten Google: ${JSON.stringify(jsonRes)}`);
+        }
+
+        const hasilTulisanAI = jsonRes.candidates[0].content.parts[0].text;
 
         const fileContent = `---
 title: "${berita.judulAsli.replace(/"/g, '\\"')}"
@@ -110,10 +112,12 @@ ${hasilTulisanAI}
 `;
 
         fs.writeFileSync(pathFile, fileContent);
-        console.log(`✅ Berita baru berhasil diterbitkan [Kategori: ${berita.isTrending ? 'Nasional' : 'Lokal'}]: ${slug}.md`);
+        console.log(`✅ Berita baru berhasil disimpan ke folder repositori: ${slug}.md`);
 
     } catch (error) {
-        console.error("❌ Terjadi kesalahan pada sistem otomasi AI:", error);
+        console.error("❌ KESALAHAN UTAMA SISTEM BOT:");
+        console.error(error.message);
+        process.exit(1); // Memberikan tanda error ke GitHub jika crash murni terjadi
     }
 }
 
