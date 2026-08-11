@@ -1,8 +1,7 @@
 {
   "name": "berita-cileungsi-bot",
   "version": "1.0.0",
-  "type": "module",
-  "description": "Bot berita otomatis Cileungsi menggunakan Gemini AI REST API",
+  "description": "Bot berita otomatis Cileungsi menggunakan Gemini AI REST API CommonJS",
   "main": "scripts/bot-berita.js",
   "dependencies": {
     "rss-parser": "^3.13.0"
