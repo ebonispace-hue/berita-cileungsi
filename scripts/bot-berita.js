@@ -2,30 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import Parser from 'rss-parser';
 import { GoogleGenAI } from '@google/genai';
-import { GoogleAuth } from 'google-auth-library';
 
 const parser = new Parser();
 
-// 1. Konfigurasi Autentikasi Menggunakan File Kunci JSON Anda
-let ai;
-try {
-    const jsonKeyText = process.env.GCP_SERVICE_ACCOUNT_KEY;
-    if (!jsonKeyText) {
-        throw new Error("GCP_SERVICE_ACCOUNT_KEY tidak ditemukan di GitHub Secrets!");
-    }
-
-    const credentials = JSON.parse(jsonKeyText);
-
-    // Memuat kredensial secara aman ke sistem otentikasi Google
-    const auth = GoogleAuth.fromJSON(credentials);
-    auth.scopes = ['https://googleapis.com'];
-
-    // Inisialisasi Gemini AI dengan otentikasi Google Cloud resmi
-    ai = new GoogleGenAI({ auth });
-} catch (e) {
-    console.error("❌ Gagal memuat otentikasi Akun Layanan Google Cloud:", e.message);
-    process.exit(1);
-}
+// Inisialisasi Gemini menggunakan Teks API Key baru Anda yang terikat Akun Layanan
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const URL_TRENDS_INDONESIA = 'https://google.com';
 const URL_GOOGLE_NEWS_ID = 'https://google.com';
@@ -89,7 +70,13 @@ async function jalankanBot() {
 
         const tanggalSekarang = new Date().toISOString();
         const slug = bersihkanSlug(berita.judulAsli);
-        const pathFile = path.join(process.cwd(), 'content', 'berita', `${slug}.md`);
+        const targetFolder = path.join(process.cwd(), 'content', 'berita');
+        const pathFile = path.join(targetFolder, `${slug}.md`);
+
+        // Membuat folder otomatis jika belum ada di dalam repositori
+        if (!fs.existsSync(targetFolder)) {
+            fs.mkdirSync(targetFolder, { recursive: true });
+        }
 
         if (fs.existsSync(pathFile)) {
             console.log(`⚠️ Berita sudah pernah diposting: ${slug}.md`);
@@ -121,11 +108,6 @@ category: "${berita.isTrending ? 'Nasional' : 'Lokal'}"
 
 ${hasilTulisanAI}
 `;
-
-        const targetFolder = path.join(process.cwd(), 'content', 'berita');
-        if (!fs.existsSync(targetFolder)) {
-            fs.mkdirSync(targetFolder, { recursive: true });
-        }
 
         fs.writeFileSync(pathFile, fileContent);
         console.log(`✅ Berita baru berhasil diterbitkan [Kategori: ${berita.isTrending ? 'Nasional' : 'Lokal'}]: ${slug}.md`);
