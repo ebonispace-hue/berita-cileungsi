@@ -2,13 +2,9 @@
   "name": "berita-cileungsi-bot",
   "version": "1.0.0",
   "type": "module",
-  "description": "Bot berita otomatis Cileungsi menggunakan Gemini AI",
+  "description": "Bot berita otomatis Cileungsi menggunakan Gemini AI REST API",
   "main": "scripts/bot-berita.js",
-  "scripts": {
-    "start": "node scripts/bot-berita.js"
-  },
   "dependencies": {
-    "@google/genai": "^0.1.2",
     "rss-parser": "^3.13.0"
   }
 }
